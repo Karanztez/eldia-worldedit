@@ -14,6 +14,7 @@ from ..core.regions import (
     create_selector,
 )
 from ..core.types import BlockVec3
+from .lang_manager import LangManager
 
 
 class SelectionManager:
@@ -43,11 +44,54 @@ class SelectionManager:
     def get_region(self, player_key: str) -> Region:
         return self.get_selector(player_key).get_region()
 
-    def select_pos1(self, player_key: str, pos: BlockVec3) -> str:
-        return self.get_selector(player_key).select_primary(pos)
+    def _localize_pos(
+        self,
+        sel: RegionSelector,
+        slot: int,
+        pos: BlockVec3,
+        fallback_msg: str,
+        lang: LangManager | None,
+    ) -> str:
+        if lang is None or lang.language == "en":
+            return fallback_msg
+        if sel.mode in ("cuboid",) and sel.is_defined():
+            extra = f" ({sel.get_region().volume} บล็อก)"
+        elif sel.mode == "cuboid":
+            extra = ""
+        else:
+            extra = f" ({sel.get_region().volume} บล็อก)" if sel.is_defined() else ""
+        if sel.mode == "cuboid":
+            key = "wand.pos1" if slot == 1 else "wand.pos2"
+            return lang.t(key, pos=pos.format_short(), extra=extra)
+        if sel.mode == "extend" and sel.is_defined():
+            return lang.t("wand.extend1" if slot == 1 else "wand.extend2", pos=pos.format_short(), vol=sel.get_region().volume)
+        if sel.mode == "ellipsoid":
+            if slot == 1:
+                return lang.t("wand.ellipsoid1", pos=pos.format_short())
+            reg = sel.get_region()
+            if isinstance(reg, EllipsoidRegion):
+                return lang.t("wand.ellipsoid2", rx=int(reg.rx), ry=int(reg.ry), rz=int(reg.rz), vol=reg.volume)
+        if sel.mode == "sphere" and slot == 2 and sel.is_defined():
+            reg = sel.get_region()
+            if isinstance(reg, EllipsoidRegion):
+                return lang.t("wand.sphere2", r=reg.rx, vol=reg.volume)
+        if sel.mode == "cyl":
+            if slot == 1:
+                return lang.t("wand.cyl1", pos=pos.format_short())
+            reg = sel.get_region()
+            if isinstance(reg, CylinderRegion):
+                return lang.t("wand.cyl2", rx=f"{reg.rx:.0f}", rz=f"{reg.rz:.0f}", h=reg.max_y - reg.min_y + 1, vol=reg.volume)
+        return lang.t("wand.pos1" if slot == 1 else "wand.pos2", pos=pos.format_short(), extra=extra)
 
-    def select_pos2(self, player_key: str, pos: BlockVec3) -> str:
-        return self.get_selector(player_key).select_secondary(pos)
+    def select_pos1(self, player_key: str, pos: BlockVec3, lang: LangManager | None = None) -> str:
+        sel = self.get_selector(player_key)
+        raw = sel.select_primary(pos)
+        return self._localize_pos(sel, 1, pos, raw, lang)
+
+    def select_pos2(self, player_key: str, pos: BlockVec3, lang: LangManager | None = None) -> str:
+        sel = self.get_selector(player_key)
+        raw = sel.select_secondary(pos)
+        return self._localize_pos(sel, 2, pos, raw, lang)
 
     def get_outline_points(self, player_key: str, max_points: int = 160) -> list[tuple[float, float, float]]:
         """Sample outline coordinates for particle rendering (`//drawsel`)."""
@@ -90,7 +134,6 @@ class SelectionManager:
                         pts.append((x0 + 0.5 + (x1 - x0) * t, y, z0 + 0.5 + (z1 - z0) * t))
             return pts[:max_points]
 
-        # Cuboid or bounding box edges (12 edges of the inclusive box)
         lo, hi = region.min_point, region.max_point
         x0, y0, z0 = float(lo.x), float(lo.y), float(lo.z)
         x1, y1, z1 = float(hi.x + 1), float(hi.y + 1), float(hi.z + 1)

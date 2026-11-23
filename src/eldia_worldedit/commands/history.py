@@ -20,9 +20,9 @@ def _cmd_undo(ctx: CommandContext) -> None:
     fast = ctx.services.sessions.get(ctx.actor.key).fast_mode
     steps, blocks = ctx.services.history.undo(target_key, ctx.actor.resolve_world, count=steps_req, fast_mode=fast)
     if steps == 0:
-        ctx.actor.send_error("Nothing left to undo.")
+        ctx.actor.send_error(ctx.t("hist.undo_none"))
     else:
-        ctx.actor.send_message(f"Undid {steps} edit(s) ({blocks} block(s) restored).")
+        ctx.actor.send_message(ctx.t("hist.undo", steps=steps, blocks=blocks))
 
 
 def _cmd_redo(ctx: CommandContext) -> None:
@@ -40,14 +40,14 @@ def _cmd_redo(ctx: CommandContext) -> None:
     fast = ctx.services.sessions.get(ctx.actor.key).fast_mode
     steps, blocks = ctx.services.history.redo(target_key, ctx.actor.resolve_world, count=steps_req, fast_mode=fast)
     if steps == 0:
-        ctx.actor.send_error("Nothing left to redo.")
+        ctx.actor.send_error(ctx.t("hist.redo_none"))
     else:
-        ctx.actor.send_message(f"Redid {steps} edit(s) ({blocks} block(s) applied).")
+        ctx.actor.send_message(ctx.t("hist.redo", steps=steps, blocks=blocks))
 
 
 def _cmd_clearhistory(ctx: CommandContext) -> None:
     cnt = ctx.services.history.clear(ctx.actor.key)
-    ctx.actor.send_message(f"Cleared {cnt} history entry/entries.")
+    ctx.actor.send_message(ctx.t("hist.cleared", count=cnt))
 
 
 def register(router: CommandRouter) -> None:

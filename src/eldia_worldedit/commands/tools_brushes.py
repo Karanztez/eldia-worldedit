@@ -11,7 +11,7 @@ from . import CommandContext, CommandRouter, CommandSpec
 def _require_hand_item(ctx: CommandContext) -> str:
     item = ctx.actor.hand_item
     if not item or item == "minecraft:air":
-        raise ValueError("Hold an item in your main hand to bind a tool or brush.")
+        raise ValueError(ctx.t("cmd.hold_item"))
     return item
 
 
@@ -167,13 +167,15 @@ def _cmd_brush(ctx: CommandContext) -> None:
         raise ValueError(f"Unknown brush type '{sub}'.")
 
     ctx.services.tools.bind_brush(ctx.actor.key, item, cfg)
-    ctx.actor.send_message(f"Bound '{cfg.kind}' brush (radius={cfg.radius:g}, pattern={cfg.pattern}) to {item}.")
+    ctx.actor.send_message(
+        ctx.t("tool.brush_bound", kind=cfg.kind, radius=f"{cfg.radius:g}", pattern=cfg.pattern, item=item)
+    )
 
 
 def _bind_tool_kind(ctx: CommandContext, kind: str, params: dict | None = None) -> None:
     item = _require_hand_item(ctx)
     ctx.services.tools.bind_tool(ctx.actor.key, item, ToolConfig(kind=kind, params=params or {}))
-    ctx.actor.send_message(f"Bound '{kind}' tool to {item}.")
+    ctx.actor.send_message(ctx.t("tool.bound", kind=kind, item=item))
 
 
 def _cmd_tool(ctx: CommandContext) -> None:
@@ -184,11 +186,11 @@ def _cmd_tool(ctx: CommandContext) -> None:
     if sub in ("none", "unbind"):
         item = _require_hand_item(ctx)
         removed = ctx.services.tools.unbind(ctx.actor.key, item)
-        ctx.actor.send_message(f"Unbound tool from {item}." if removed else f"No tool bound on {item}.")
+        ctx.actor.send_message(ctx.t("tool.unbound", item=item) if removed else f"No tool bound on {item}.")
         return
     if sub == "unbindall":
         cnt = ctx.services.tools.unbind_all(ctx.actor.key)
-        ctx.actor.send_message(f"Unbound {cnt} tool(s)/brush(es).")
+        ctx.actor.send_message(ctx.t("tool.unbound_all", count=cnt))
         return
     if sub == "selwand":
         _bind_tool_kind(ctx, "selwand")
@@ -228,25 +230,26 @@ def _cmd_superpickaxe(ctx: CommandContext) -> None:
     cfg = ctx.services.tools.get_super_pickaxe(ctx.actor.key)
     if not ctx.tokens or ctx.tokens[0].lower() == "toggle":
         cfg.enabled = not cfg.enabled
-        ctx.actor.send_message(f"Super Pickaxe {'enabled' if cfg.enabled else 'disabled'} ({cfg.mode}).")
+        state = ctx.t("state.enabled" if cfg.enabled else "state.disabled")
+        ctx.actor.send_message(ctx.t("tool.sp_toggle", state=state, mode=cfg.mode))
         return
     sub = ctx.tokens[0].lower()
     if sub == "single":
         cfg.enabled = True
         cfg.mode = "single"
-        ctx.actor.send_message("Super Pickaxe set to 'single' mode.")
+        ctx.actor.send_message(ctx.t("tool.sp_mode", mode="single"))
         return
     if sub == "area":
         cfg.enabled = True
         cfg.mode = "area"
         cfg.radius = max(1, min(5, int(ctx.tokens[1]) if len(ctx.tokens) >= 2 else 1))
-        ctx.actor.send_message(f"Super Pickaxe set to 'area' (radius={cfg.radius}).")
+        ctx.actor.send_message(ctx.t("tool.sp_mode", mode=f"area (r={cfg.radius})"))
         return
     if sub in ("recur", "recursive"):
         cfg.enabled = True
         cfg.mode = "recursive"
         cfg.radius = max(1, min(5, int(ctx.tokens[1]) if len(ctx.tokens) >= 2 else 3))
-        ctx.actor.send_message(f"Super Pickaxe set to 'recursive' (radius={cfg.radius}).")
+        ctx.actor.send_message(ctx.t("tool.sp_mode", mode=f"recursive (r={cfg.radius})"))
         return
     raise ValueError("Usage: //sp <toggle|single|area <r>|recursive <r>>")
 
@@ -254,7 +257,7 @@ def _cmd_superpickaxe(ctx: CommandContext) -> None:
 def _cmd_none(ctx: CommandContext) -> None:
     item = _require_hand_item(ctx)
     removed = ctx.services.tools.unbind(ctx.actor.key, item)
-    ctx.actor.send_message(f"Unbound tool/brush from {item}." if removed else f"Nothing bound on {item}.")
+    ctx.actor.send_message(ctx.t("tool.unbound", item=item) if removed else f"Nothing bound on {item}.")
 
 
 def _cmd_mat(ctx: CommandContext) -> None:

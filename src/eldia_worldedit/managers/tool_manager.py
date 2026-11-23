@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 
+from ..core.types import BlockVec3
 from ..tools.brushes import BrushConfig
 from ..tools.items import SuperPickaxeConfig, ToolConfig
 
@@ -15,7 +16,8 @@ class ToolManager:
         self._tools: dict[str, dict[str, ToolConfig]] = {}
         self._brushes: dict[str, dict[str, BrushConfig]] = {}
         self._super_pickaxe: dict[str, SuperPickaxeConfig] = {}
-        self._last_left_click: dict[str, float] = {}
+        self._last_click: dict[tuple[str, str], float] = {}
+        self._last_pos: dict[tuple[str, str], tuple[BlockVec3, float]] = {}
 
     def bind_tool(self, player_key: str, item_id: str, tool: ToolConfig) -> None:
         key = item_id.lower()
@@ -52,22 +54,60 @@ class ToolManager:
             self._super_pickaxe[player_key] = cfg
         return cfg
 
+    def should_debounce(
+        self,
+        player_key: str,
+        action: str = "left",
+        now_ms: float | None = None,
+        cooldown_ms: float = 250.0,
+    ) -> bool:
+        """Debounce rapid repeated Bedrock click events per player and click direction."""
+        ts = now_ms if now_ms is not None else time.monotonic() * 1000.0
+        key = (player_key, action)
+        prev = self._last_click.get(key, -1e12)
+        if ts - prev < cooldown_ms:
+            return True
+        self._last_click[key] = ts
+        return False
+
     def should_debounce_left_click(
         self,
         player_key: str,
         now_ms: float | None = None,
-        cooldown_ms: float = 150.0,
+        cooldown_ms: float = 200.0,
     ) -> bool:
-        """Prevent duplicate wand/tool firing when BDS sends both interact & break events."""
+        return self.should_debounce(player_key, action="left", now_ms=now_ms, cooldown_ms=cooldown_ms)
+
+    def should_debounce_right_click(
+        self,
+        player_key: str,
+        now_ms: float | None = None,
+        cooldown_ms: float = 300.0,
+    ) -> bool:
+        return self.should_debounce(player_key, action="right", now_ms=now_ms, cooldown_ms=cooldown_ms)
+
+    def should_suppress_repeat_pos(
+        self,
+        player_key: str,
+        slot: str,
+        pos: BlockVec3,
+        now_ms: float | None = None,
+        window_ms: float = 750.0,
+    ) -> bool:
+        """Suppress continuous Bedrock hold/spam selecting the identical coordinate repeatedly."""
         ts = now_ms if now_ms is not None else time.monotonic() * 1000.0
-        prev = self._last_left_click.get(player_key, -1e12)
-        if ts - prev < cooldown_ms:
-            return True
-        self._last_left_click[player_key] = ts
+        key = (player_key, slot)
+        prev = self._last_pos.get(key)
+        self._last_pos[key] = (pos, ts)
+        if prev is not None:
+            prev_pos, prev_ts = prev
+            if prev_pos == pos and (ts - prev_ts) < window_ms:
+                return True
         return False
 
     def remove_player(self, player_key: str) -> None:
         self._tools.pop(player_key, None)
         self._brushes.pop(player_key, None)
         self._super_pickaxe.pop(player_key, None)
-        self._last_left_click.pop(player_key, None)
+        self._last_click = {k: v for k, v in self._last_click.items() if k[0] != player_key}
+        self._last_pos = {k: v for k, v in self._last_pos.items() if k[0] != player_key}

@@ -87,28 +87,28 @@ VANILLA_COMMANDS: frozenset[str] = frozenset({
 
 
 def rewrite_double_slash_command(raw_command: str) -> str | None:
-    """Rewrite `//cmd ...`, `/.s ...`, `/;`, `/!`, `/,` into `/we ...` for BDS/Endstone routing."""
+    """Rewrite `//cmd ...`, `/.s ...`, `/;`, `/!`, `/,` into `/ewe ...` for BDS/Endstone routing."""
     cmd = raw_command.strip()
     if not cmd.startswith("/"):
         return None
     body = cmd[1:]
     if body == "/":
-        return "/we sp toggle"
+        return "/ewe sp toggle"
     if body.startswith("/"):
         rest = body[1:].strip()
         if not rest:
-            return "/we sp toggle"
-        return f"/we {rest}"
+            return "/ewe sp toggle"
+        return f"/ewe {rest}"
     if body == ".s" or body.startswith(".s "):
         rest = body[2:].strip()
-        return f"/we .s {rest}".strip()
+        return f"/ewe .s {rest}".strip()
     if body == ";" or body.startswith("; "):
         rest = body[1:].strip()
-        return f"/we sel {rest}".strip()
+        return f"/ewe sel {rest}".strip()
     if body == "!":
-        return "/we unstuck"
+        return "/ewe unstuck"
     if body == ",":
-        return "/we sp toggle"
+        return "/ewe sp toggle"
     return None
 
 
@@ -267,7 +267,10 @@ class CommandContext:
 
     def require_player(self) -> None:
         if not self.actor.is_player:
-            raise ValueError("This command can only be run by an in-game player.")
+            raise ValueError(self.t("cmd.player_only"))
+
+    def t(self, key: str, **kwargs: object) -> str:
+        return self.services.lang.t(key, **kwargs)
 
     def create_edit_session(self, description: str = "", origin: BlockVec3 | None = None) -> EditSession:
         return self.services.create_edit_session(
@@ -344,11 +347,11 @@ class CommandRouter:
             return False
 
         if spec.player_only and not actor.is_player:
-            actor.send_error("This command can only be executed by a player.")
+            actor.send_error(self.services.lang.t("cmd.player_only"))
             return True
 
         if not actor.has_permission(spec.permission):
-            actor.send_error(f"You lack permission: {spec.permission}")
+            actor.send_error(self.services.lang.t("cmd.no_permission", perm=spec.permission))
             return True
 
         try:
@@ -370,7 +373,7 @@ class CommandRouter:
         )
 
         # Record last command for /.s (avoid overwriting with .s itself)
-        if spec.name not in (".s", "we", "worldedit"):
+        if spec.name not in (".s", "we", "ewe", "worldedit"):
             full_cmd = f"//{spec.name} {raw_args}".strip()
             self.services.scripts.record_last_command(actor.key, full_cmd)
 
@@ -403,12 +406,13 @@ class CommandRouter:
         parts = stripped.split(None, 1)
         cmd_name = parts[0].lower()
         rest = parts[1] if len(parts) > 1 else ""
-        if cmd_name in ("we", "worldedit") and rest:
+        if cmd_name in ("ewe", "we", "worldedit") and rest:
             sub_parts = rest.split(None, 1)
             sub_cmd = sub_parts[0].lower()
             sub_rest = sub_parts[1] if len(sub_parts) > 1 else ""
             if (
-                sub_cmd not in ("version", "ver", "help", "reload", "cui", "gui", "ui", "tz", "report", "commands")
+                sub_cmd
+                not in ("version", "ver", "help", "reload", "cui", "gui", "ui", "tz", "report", "commands", "lang")
                 and self.find(sub_cmd) is not None
             ):
                 return self.dispatch(actor, sub_cmd, sub_rest, scheduler=scheduler, plugin=plugin)

@@ -10,7 +10,9 @@ from ..core.types import BlockSpec, BlockVec3
 from ..world.adapter import WorldAdapter
 from ..world.edit_session import EditSession
 from .clipboard_manager import ClipboardManager
+from .config_manager import ConfigManager, PluginConfig
 from .history_manager import HistoryManager
+from .lang_manager import LangManager
 from .script_manager import ScriptManager
 from .selection_manager import SelectionManager
 from .session_manager import LocalSession, SessionManager
@@ -23,6 +25,8 @@ from .ui_manager import UIManager
 class WorldEditServices:
     """Service container grouping every WorldEdit subsystem manager."""
 
+    config: ConfigManager
+    lang: LangManager
     sessions: SessionManager
     selections: SelectionManager
     history: HistoryManager
@@ -36,23 +40,36 @@ class WorldEditServices:
     def create(
         cls,
         data_folder: Path,
-        max_history: int = 30,
-        default_limit: int = 500_000,
+        max_history: int | None = None,
+        default_limit: int | None = None,
         max_limit: int = -1,
         create_dirs: bool = True,
     ) -> WorldEditServices:
         if create_dirs:
             data_folder.mkdir(parents=True, exist_ok=True)
+        cfg_mgr = ConfigManager(data_folder / "config.yml", create_file=create_dirs)
+        cfg = cfg_mgr.config
+        eff_history = max_history if max_history is not None else cfg.max_history
+        eff_limit = default_limit if default_limit is not None else cfg.default_limit
         return cls(
-            sessions=SessionManager(default_limit=default_limit, max_limit=max_limit),
+            config=cfg_mgr,
+            lang=LangManager(cfg.language),
+            sessions=SessionManager(default_limit=eff_limit, max_limit=max_limit),
             selections=SelectionManager(),
-            history=HistoryManager(max_history=max_history),
+            history=HistoryManager(max_history=eff_history),
             clipboards=ClipboardManager(schematics_dir=data_folder / "schematics"),
             tools=ToolManager(),
             snapshots=SnapshotManager(snapshots_dir=data_folder / "snapshots"),
             scripts=ScriptManager(craftscripts_dir=data_folder / "craftscripts"),
             ui=UIManager(),
         )
+
+    def reload_config(self) -> PluginConfig:
+        cfg = self.config.reload()
+        self.lang.set_language(cfg.language)
+        self.sessions.default_limit = cfg.default_limit
+        self.history.max_history = cfg.max_history
+        return cfg
 
     def create_edit_session(
         self,
@@ -87,8 +104,11 @@ class WorldEditServices:
 
 __all__ = [
     "ClipboardManager",
+    "ConfigManager",
     "HistoryManager",
+    "LangManager",
     "LocalSession",
+    "PluginConfig",
     "ScriptManager",
     "SelectionManager",
     "SessionManager",

@@ -13,34 +13,46 @@ from . import CommandContext, CommandRouter, CommandSpec
 def _cmd_worldedit(ctx: CommandContext) -> None:
     if not ctx.tokens:
         specs = ctx.router.all_specs()
-        ctx.actor.send_message(f"[Eldia WorldEdit] v0.1.0 | {len(specs)} commands | Use //we help or //we gui.")
+        ctx.actor.send_message(ctx.t("gen.info", count=len(specs)))
         return
 
     sub = ctx.tokens[0].lower()
     rest = ctx.tokens[1:]
 
     if sub in ("version", "ver"):
-        ctx.actor.send_message("[Eldia WorldEdit] Version 0.1.0 for Endstone 0.11.2 (Bedrock).")
+        ctx.actor.send_message(ctx.t("gen.version"))
         return
 
-    if sub == "gui" or sub == "ui":
+    if sub == "lang":
+        if not rest:
+            ctx.actor.send_message(f"Current language: {ctx.services.lang.language} (en / th)")
+            return
+        new_lang = ctx.services.lang.set_language(rest[0])
+        ctx.services.config.config.language = new_lang
+        ctx.services.config.save()
+        ctx.actor.send_message(ctx.t("gen.lang_set", lang=new_lang))
+        return
+
+    if sub in ("gui", "ui"):
         ctx.require_player()
         if ctx.actor.raw_player is None:
             raise ValueError("Interactive Bedrock Forms require a live Endstone player.")
         sess = ctx.services.sessions.get(ctx.actor.key)
         summary = f"Limit: {sess.block_change_limit} | Fast: {sess.fast_mode} | Wand: {sess.wand_enabled}"
-        ctx.services.ui.open_main_menu(ctx.actor.raw_player, summary)
+        ctx.services.ui.open_main_menu(ctx.actor.raw_player, summary, lang=ctx.services.lang)
         return
 
     if sub == "cui":
         ctx.require_player()
         sess = ctx.services.sessions.get(ctx.actor.key)
         sess.drawsel_enabled = not sess.drawsel_enabled
-        ctx.actor.send_message(f"Selection visualization {'enabled' if sess.drawsel_enabled else 'disabled'}.")
+        state = ctx.t("state.enabled" if sess.drawsel_enabled else "state.disabled")
+        ctx.actor.send_message(ctx.t("sel.drawsel", state=state))
         return
 
     if sub == "reload":
-        ctx.actor.send_message("[Eldia WorldEdit] Configuration and command cache reloaded.")
+        cfg = ctx.services.reload_config()
+        ctx.actor.send_message(ctx.t("gen.reloaded", lang=cfg.language, prefix=cfg.prefix))
         return
 
     if sub == "report":
@@ -82,19 +94,19 @@ def _cmd_worldedit(ctx: CommandContext) -> None:
         ctx.router.dispatch(ctx.actor, sub, " ".join(rest), scheduler=ctx.scheduler, plugin=ctx.plugin)
         return
 
-    raise ValueError(f"Unknown WorldEdit subcommand '{sub}'. Try //we help.")
+    raise ValueError(f"Unknown subcommand '{sub}'. Try /ewe help.")
 
 
 def _cmd_gmask(ctx: CommandContext) -> None:
     sess = ctx.services.sessions.get(ctx.actor.key)
     if not ctx.tokens:
         sess.gmask_expr = None
-        ctx.actor.send_message("Global mask cleared.")
+        ctx.actor.send_message(ctx.t("gen.gmask_clear"))
         return
     expr = " ".join(ctx.tokens)
     parse_mask(expr, MaskContext(origin=ctx.actor.position, hand_block=ctx.actor.hand_block))
     sess.gmask_expr = expr
-    ctx.actor.send_message(f"Global mask set to: {expr}")
+    ctx.actor.send_message(ctx.t("gen.gmask_set", expr=expr))
 
 
 def _cmd_gtransform(ctx: CommandContext) -> None:
@@ -110,7 +122,8 @@ def _cmd_gtransform(ctx: CommandContext) -> None:
 def _cmd_fast(ctx: CommandContext) -> None:
     sess = ctx.services.sessions.get(ctx.actor.key)
     sess.fast_mode = not sess.fast_mode
-    ctx.actor.send_message(f"Fast mode {'enabled (physics disabled)' if sess.fast_mode else 'disabled'}.")
+    state = ctx.t("state.enabled" if sess.fast_mode else "state.disabled")
+    ctx.actor.send_message(ctx.t("gen.fast", state=state))
 
 
 def _cmd_perf(ctx: CommandContext) -> None:
@@ -135,7 +148,7 @@ def _cmd_limit(ctx: CommandContext) -> None:
         return
     val = int(ctx.tokens[0])
     applied = ctx.services.sessions.set_limit(ctx.actor.key, val)
-    ctx.actor.send_message(f"Block change limit set to {applied}.")
+    ctx.actor.send_message(ctx.t("gen.limit", limit=applied))
 
 
 def _cmd_timeout(ctx: CommandContext) -> None:
@@ -191,7 +204,7 @@ def _cmd_setbiome(ctx: CommandContext) -> None:
         return
     region = ctx.services.selections.get_region(ctx.actor.key)
     cnt = op_biome_set(ctx.actor.world, region, biome_name)
-    ctx.actor.send_message(f"Set biome '{biome_name}' across {cnt} block(s).")
+    ctx.actor.send_message(ctx.t("gen.biome_set", biome=biome_name, count=cnt))
 
 
 def _cmd_chunkinfo(ctx: CommandContext) -> None:
@@ -223,7 +236,7 @@ def _cmd_snapshot(ctx: CommandContext) -> None:
         name = pos_args[0] if pos_args else f"snap_{int(__import__('time').time())}"
         entry = sman.save_snapshot(name, ctx.actor.world, region, overwrite="f" in flags)
         sman.select_snapshot(ctx.actor.key, entry.name)
-        ctx.actor.send_message(f"Saved snapshot '{entry.name}' ({region.volume} blocks) and selected it.")
+        ctx.actor.send_message(ctx.t("snap.saved", name=entry.name, vol=region.volume))
         return
 
     if sub == "list":
@@ -273,7 +286,7 @@ def _cmd_restore(ctx: CommandContext) -> None:
     used_name, changed = ctx.services.snapshots.restore_region(
         ctx.actor.key, session, region, snapshot_name=snap_name, only_air="a" in flags
     )
-    ctx.commit_edit(session, f"Restored {changed} block(s) from snapshot '{used_name}'.")
+    ctx.commit_edit(session, ctx.t("snap.restored", count=changed, name=used_name))
 
 
 def _cmd_cs(ctx: CommandContext) -> None:
@@ -314,7 +327,7 @@ def _cmd_repeat_script(ctx: CommandContext) -> None:
 
 def register(router: CommandRouter) -> None:
     specs = [
-        CommandSpec("worldedit", ("we",), "worldedit.help", "WorldEdit info, GUI, help, and double-slash router.", "/we <version|help|gui|reload|cui|report>", "General", _cmd_worldedit, player_only=False),
+        CommandSpec("worldedit", ("ewe", "we"), "worldedit.help", "Eldia WorldEdit info, GUI, lang, help, and router.", "/ewe <version|help|gui|lang|reload|cui|report>", "General", _cmd_worldedit, player_only=False),
         CommandSpec("gmask", (), "worldedit.global-mask", "Set global edit mask.", "//gmask [mask]", "General", _cmd_gmask),
         CommandSpec("gtransform", (), "worldedit.global-transform", "Set global clipboard transform.", "//gtransform [transform]", "General", _cmd_gtransform),
         CommandSpec("fast", (), "worldedit.fast", "Toggle fast mode (disables physics updates).", "//fast", "General", _cmd_fast),

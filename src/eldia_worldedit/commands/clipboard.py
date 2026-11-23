@@ -25,7 +25,7 @@ def _cmd_copy(ctx: CommandContext) -> None:
         copy_biomes="b" in flags,
     )
     ctx.services.clipboards.set(ctx.actor.key, cb)
-    ctx.actor.send_message(f"{cb.volume} block(s) copied to clipboard.")
+    ctx.actor.send_message(ctx.t("clip.copied", vol=cb.volume))
 
 
 def _cmd_cut(ctx: CommandContext) -> None:
@@ -53,14 +53,14 @@ def _cmd_cut(ctx: CommandContext) -> None:
             continue
         spec = leave_pat.apply(pos, mctx.rng, PatternContext(world=ctx.actor.world)) if leave_pat else AIR_SPEC
         session.set_block(pos, spec)
-    ctx.commit_edit(session, f"{session.changes_count} block(s) cut into clipboard.")
+    ctx.commit_edit(session, ctx.t("clip.cut", count=session.changes_count))
 
 
 def _cmd_paste(ctx: CommandContext) -> None:
     flags, values, _ = parse_flags(ctx.tokens, value_flags={"m"}, bool_flags={"a", "o", "s", "b", "e", "n"})
     cb = ctx.services.clipboards.get(ctx.actor.key)
     if cb is None:
-        raise ValueError("Your clipboard is empty. Use //copy first.")
+        raise ValueError(ctx.t("clip.empty"))
     to_pos = cb.origin if "o" in flags else ctx.actor.position
     src_mask = parse_mask(values["m"]) if "m" in values else None
     session = ctx.create_edit_session("paste", origin=to_pos)
@@ -76,15 +76,15 @@ def _cmd_paste(ctx: CommandContext) -> None:
     if "s" in flags or "n" in flags:
         sel = ctx.services.selections
         sel.set_mode(ctx.actor.key, "cuboid")
-        sel.select_pos1(ctx.actor.key, pmin)
-        sel.select_pos2(ctx.actor.key, pmax)
-    ctx.commit_edit(session, f"Clipboard pasted at {to_pos.format_short()} ({changed} blocks).")
+        sel.select_pos1(ctx.actor.key, pmin, lang=ctx.services.lang)
+        sel.select_pos2(ctx.actor.key, pmax, lang=ctx.services.lang)
+    ctx.commit_edit(session, ctx.t("clip.pasted", pos=to_pos.format_short(), count=changed))
 
 
 def _cmd_rotate(ctx: CommandContext) -> None:
     cb = ctx.services.clipboards.get(ctx.actor.key)
     if cb is None:
-        raise ValueError("Your clipboard is empty.")
+        raise ValueError(ctx.t("clip.empty"))
     if not ctx.tokens:
         raise ValueError("Usage: //rotate <y-degrees> [x-degrees] [z-degrees]")
     ry = int(ctx.tokens[0])
@@ -92,23 +92,23 @@ def _cmd_rotate(ctx: CommandContext) -> None:
     rz = int(ctx.tokens[2]) if len(ctx.tokens) >= 3 else 0
     rotated = rotate_clipboard(cb, rot_y=ry, rot_x=rx, rot_z=rz)
     ctx.services.clipboards.set(ctx.actor.key, rotated)
-    ctx.actor.send_message(f"Clipboard rotated by ({ry}, {rx}, {rz}) degrees.")
+    ctx.actor.send_message(ctx.t("clip.rotated", ry=ry, rx=rx, rz=rz))
 
 
 def _cmd_flip(ctx: CommandContext) -> None:
     cb = ctx.services.clipboards.get(ctx.actor.key)
     if cb is None:
-        raise ValueError("Your clipboard is empty.")
+        raise ValueError(ctx.t("clip.empty"))
     dir_tok = ctx.tokens[0] if ctx.tokens else None
     direction = resolve_direction(dir_tok, yaw=ctx.actor.yaw, pitch=ctx.actor.pitch)
     flipped = flip_clipboard(cb, direction)
     ctx.services.clipboards.set(ctx.actor.key, flipped)
-    ctx.actor.send_message(f"Clipboard flipped along {direction.format_short()}.")
+    ctx.actor.send_message(ctx.t("clip.flipped", dir=direction.format_short()))
 
 
 def _cmd_clearclipboard(ctx: CommandContext) -> None:
     ctx.services.clipboards.clear(ctx.actor.key)
-    ctx.actor.send_message("Clipboard cleared.")
+    ctx.actor.send_message(ctx.t("clip.cleared"))
 
 
 def _cmd_schem(ctx: CommandContext) -> None:
@@ -119,7 +119,7 @@ def _cmd_schem(ctx: CommandContext) -> None:
     cman = ctx.services.clipboards
 
     if sub in ("formats", "listformats"):
-        ctx.actor.send_message(f"Supported schematic formats: {', '.join(SCHEMATIC_FORMATS)}")
+        ctx.actor.send_message(ctx.t("schem.formats", formats=", ".join(SCHEMATIC_FORMATS)))
         return
 
     if sub == "list":
@@ -127,9 +127,9 @@ def _cmd_schem(ctx: CommandContext) -> None:
         sort_mode = "oldest" if "o" in flags else ("newest" if ("d" in flags or "n" in flags) else "name")
         entries = cman.list_files(sort=sort_mode)
         if not entries:
-            ctx.actor.send_message("No saved schematics found.")
+            ctx.actor.send_message(ctx.t("schem.none"))
             return
-        ctx.actor.send_message(f"Available schematics ({len(entries)}):")
+        ctx.actor.send_message(ctx.t("schem.list", count=len(entries)))
         for e in entries:
             ctx.actor.send_message(f"  - {e.name}.{e.fmt} ({e.size_bytes} bytes)")
         return
@@ -137,11 +137,11 @@ def _cmd_schem(ctx: CommandContext) -> None:
     if sub == "save":
         flags, _, pos_args = parse_flags(rest, bool_flags={"f"})
         if not pos_args:
-            raise ValueError("Usage: //schem save [-f] <filename> [format]")
+            raise ValueError("Usage: //schem save [-f] <filename> [schem|mcstructure|wejson]")
         name = pos_args[0]
         fmt = pos_args[1] if len(pos_args) >= 2 else "schem"
         path = cman.save_to_disk(ctx.actor.key, name, fmt=fmt, overwrite="f" in flags)
-        ctx.actor.send_message(f"Schematic saved as {path.name}.")
+        ctx.actor.send_message(ctx.t("schem.saved", name=path.name))
         return
 
     if sub == "load":
@@ -149,14 +149,14 @@ def _cmd_schem(ctx: CommandContext) -> None:
             raise ValueError("Usage: //schem load <filename>")
         cb = cman.load_from_disk(ctx.actor.key, rest[0])
         d = cb.dimensions
-        ctx.actor.send_message(f"Loaded schematic '{rest[0]}' ({d.x}x{d.y}x{d.z}). Use //paste to place it.")
+        ctx.actor.send_message(ctx.t("schem.loaded", name=rest[0], dx=d.x, dy=d.y, dz=d.z))
         return
 
     if sub in ("delete", "rm"):
         if not rest:
             raise ValueError("Usage: //schem delete <filename>")
         removed = cman.delete_file(rest[0])
-        ctx.actor.send_message(f"Deleted schematic '{removed.name}'.")
+        ctx.actor.send_message(ctx.t("schem.deleted", name=removed.name))
         return
 
     raise ValueError(f"Unknown schematic subcommand '{sub}'. Use save, load, list, delete, or formats.")

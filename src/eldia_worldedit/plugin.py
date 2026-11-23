@@ -135,10 +135,12 @@ class EndstoneCommandActor:
         return self._player
 
     def send_message(self, msg: str) -> None:
-        self.sender.send_message(f"{ColorFormat.LIGHT_PURPLE}[WE] {ColorFormat.RESET}{msg}")
+        prefix = self.plugin.services.config.config.prefix
+        self.sender.send_message(f"{ColorFormat.LIGHT_PURPLE}{prefix} {ColorFormat.RESET}{msg}")
 
     def send_error(self, msg: str) -> None:
-        self.sender.send_error_message(f"{ColorFormat.RED}[WE] {msg}")
+        prefix = self.plugin.services.config.config.prefix
+        self.sender.send_error_message(f"{ColorFormat.RED}{prefix} {msg}")
 
     def teleport(self, pos: BlockVec3) -> None:
         if self._player is None:
@@ -185,10 +187,12 @@ class WorldEditPlugin(Plugin):
 
     def on_load(self) -> None:
         data_dir = Path(str(self.data_folder)) if self.data_folder else Path("plugins") / "eldia_worldedit"
+        env_hist = os.environ.get("ELDIA_WE_HISTORY")
+        env_lim = os.environ.get("ELDIA_WE_LIMIT")
         self.services = WorldEditServices.create(
             data_folder=data_dir,
-            max_history=int(os.environ.get("ELDIA_WE_HISTORY", "30")),
-            default_limit=int(os.environ.get("ELDIA_WE_LIMIT", "500000")),
+            max_history=int(env_hist) if env_hist is not None else None,
+            default_limit=int(env_lim) if env_lim is not None else None,
         )
         self.router = CommandRouter(self.services)
         register_all_commands(self.router)
@@ -263,8 +267,8 @@ class WorldEditPlugin(Plugin):
 
         if item and sess.wand_enabled and item == sess.wand_item:
             event.cancel()
-            if not self.services.tools.should_debounce_left_click(pkey):
-                actor.send_message(self.services.selections.select_pos1(pkey, pos))
+            if not self.services.tools.should_debounce_left_click(pkey) and not self.services.tools.should_suppress_repeat_pos(pkey, "pos1", pos):
+                actor.send_message(self.services.selections.select_pos1(pkey, pos, lang=self.services.lang))
             return
 
         if item:
@@ -315,11 +319,18 @@ class WorldEditPlugin(Plugin):
         # 1. Selection wand
         if sess.wand_enabled and item == sess.wand_item and clicked_pos is not None:
             event.cancel()
-            if is_left:
-                if not self.services.tools.should_debounce_left_click(pkey):
-                    actor.send_message(self.services.selections.select_pos1(pkey, clicked_pos))
-            elif is_right:
-                actor.send_message(self.services.selections.select_pos2(pkey, clicked_pos))
+            if (
+                is_left
+                and not self.services.tools.should_debounce_left_click(pkey)
+                and not self.services.tools.should_suppress_repeat_pos(pkey, "pos1", clicked_pos)
+            ):
+                actor.send_message(self.services.selections.select_pos1(pkey, clicked_pos, lang=self.services.lang))
+            elif (
+                is_right
+                and not self.services.tools.should_debounce_right_click(pkey)
+                and not self.services.tools.should_suppress_repeat_pos(pkey, "pos2", clicked_pos)
+            ):
+                actor.send_message(self.services.selections.select_pos2(pkey, clicked_pos, lang=self.services.lang))
             return
 
         # 2. Navigation wand
@@ -331,7 +342,7 @@ class WorldEditPlugin(Plugin):
                     dest = find_jumpto_pos(actor.world, ex, ey, ez, actor.yaw, actor.pitch)
                     if dest is not None:
                         actor.teleport(dest)
-            elif is_right:
+            elif is_right and not self.services.tools.should_debounce_right_click(pkey):
                 dest = find_thru_pos(actor.world, ex, ey, ez, actor.yaw, actor.pitch)
                 if dest is not None:
                     actor.teleport(dest)
@@ -343,12 +354,20 @@ class WorldEditPlugin(Plugin):
             event.cancel()
             if is_left and self.services.tools.should_debounce_left_click(pkey):
                 return
+            if is_right and self.services.tools.should_debounce_right_click(pkey):
+                return
             ex, ey, ez = actor.eye_position
             target = clicked_pos or raycast_block(actor.world, ex, ey, ez, actor.yaw, actor.pitch, max_dist=128.0)
             if tool.kind == "farwand":
                 if target is not None:
-                    msg = self.services.selections.select_pos1(pkey, target) if is_left else self.services.selections.select_pos2(pkey, target)
-                    actor.send_message(msg)
+                    slot = "pos1" if is_left else "pos2"
+                    if not self.services.tools.should_suppress_repeat_pos(pkey, slot, target):
+                        msg = (
+                            self.services.selections.select_pos1(pkey, target, lang=self.services.lang)
+                            if is_left
+                            else self.services.selections.select_pos2(pkey, target, lang=self.services.lang)
+                        )
+                        actor.send_message(msg)
                 return
             if target is not None:
                 session = self.services.create_edit_session(pkey, actor.world, origin=target, hand_block=actor.hand_block, description=f"tool:{tool.kind}")
@@ -362,7 +381,7 @@ class WorldEditPlugin(Plugin):
 
         # 4. Bound terrain brush (right-click raycast)
         brush = self.services.tools.get_brush(pkey, item)
-        if brush is not None and is_right:
+        if brush is not None and is_right and not self.services.tools.should_debounce_right_click(pkey):
             event.cancel()
             ex, ey, ez = actor.eye_position
             target = clicked_pos or raycast_block(actor.world, ex, ey, ez, actor.yaw, actor.pitch, max_dist=brush.range_limit)

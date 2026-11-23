@@ -18,7 +18,7 @@ from . import CommandContext, CommandRouter, CommandSpec
 def _cmd_unstuck(ctx: CommandContext) -> None:
     dest = find_unstuck_pos(ctx.actor.world, ctx.actor.position)
     ctx.actor.teleport(dest)
-    ctx.actor.send_message(f"Unstuck to {dest.format_short()}.")
+    ctx.actor.send_message(ctx.t("nav.unstuck", pos=dest.format_short()))
 
 
 def _cmd_ascend(ctx: CommandContext) -> None:
@@ -27,7 +27,7 @@ def _cmd_ascend(ctx: CommandContext) -> None:
     if dest is None:
         raise ValueError("No free floor found above you.")
     ctx.actor.teleport(dest)
-    ctx.actor.send_message(f"Ascended {levels} level(s) to {dest.format_short()}.")
+    ctx.actor.send_message(ctx.t("nav.ascend", levels=levels, pos=dest.format_short()))
 
 
 def _cmd_descend(ctx: CommandContext) -> None:
@@ -36,7 +36,7 @@ def _cmd_descend(ctx: CommandContext) -> None:
     if dest is None:
         raise ValueError("No free room found below you.")
     ctx.actor.teleport(dest)
-    ctx.actor.send_message(f"Descended {levels} level(s) to {dest.format_short()}.")
+    ctx.actor.send_message(ctx.t("nav.descend", levels=levels, pos=dest.format_short()))
 
 
 def _cmd_ceil(ctx: CommandContext) -> None:
@@ -54,7 +54,7 @@ def _cmd_ceil(ctx: CommandContext) -> None:
             session.set_block(below, BlockSpec("minecraft:glass"))
             ctx.commit_edit(session)
     ctx.actor.teleport(dest)
-    ctx.actor.send_message(f"Moved up to ceiling at {dest.format_short()}.")
+    ctx.actor.send_message(ctx.t("nav.ceil", pos=dest.format_short()))
 
 
 def _cmd_thru(ctx: CommandContext) -> None:
@@ -63,16 +63,16 @@ def _cmd_thru(ctx: CommandContext) -> None:
     if dest is None:
         raise ValueError("No free space found through the obstacle you are looking at.")
     ctx.actor.teleport(dest)
-    ctx.actor.send_message(f"Passed through wall to {dest.format_short()}.")
+    ctx.actor.send_message(ctx.t("nav.thru", pos=dest.format_short()))
 
 
 def _cmd_jumpto(ctx: CommandContext) -> None:
     ex, ey, ez = ctx.actor.eye_position
     dest = find_jumpto_pos(ctx.actor.world, ex, ey, ez, ctx.actor.yaw, ctx.actor.pitch)
     if dest is None:
-        raise ValueError("No block in sight within range.")
+        raise ValueError(ctx.t("cmd.no_block_sight"))
     ctx.actor.teleport(dest)
-    ctx.actor.send_message(f"Jumped to {dest.format_short()}.")
+    ctx.actor.send_message(ctx.t("nav.jumpto", pos=dest.format_short()))
 
 
 def _cmd_up(ctx: CommandContext) -> None:
@@ -84,7 +84,7 @@ def _cmd_up(ctx: CommandContext) -> None:
     dest = find_up_pos(ctx.actor.world, session, ctx.actor.position, distance=dist, place_glass="f" not in flags)
     ctx.commit_edit(session)
     ctx.actor.teleport(dest)
-    ctx.actor.send_message(f"Moved up {dist} block(s) to {dest.format_short()}.")
+    ctx.actor.send_message(ctx.t("nav.up", dist=dist, pos=dest.format_short()))
 
 
 def register(router: CommandRouter) -> None:

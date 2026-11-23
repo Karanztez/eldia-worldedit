@@ -48,7 +48,7 @@ def _cmd_set(ctx: CommandContext) -> None:
     session = ctx.create_edit_session("set", origin=region.min_point)
     pat = parse_pattern(" ".join(ctx.tokens), _pat_ctx(ctx, region, region.min_point))
     op_set(session, region, pat, pat_ctx=_pat_ctx(ctx, region, region.min_point))
-    ctx.commit_edit(session, f"Operation completed ({session.changes_count} block(s) affected).")
+    ctx.commit_edit(session, ctx.t("region.set", count=session.changes_count))
 
 
 def _cmd_replace(ctx: CommandContext) -> None:
@@ -65,7 +65,7 @@ def _cmd_replace(ctx: CommandContext) -> None:
         to_pat = parse_pattern(ctx.tokens[-1], pctx)
         from_mask = parse_mask(" ".join(ctx.tokens[:-1]), mctx)
     op_replace(session, region, from_mask, to_pat, pat_ctx=pctx, mask_ctx=mctx)
-    ctx.commit_edit(session, f"{session.changes_count} block(s) have been replaced.")
+    ctx.commit_edit(session, ctx.t("region.replace", count=session.changes_count))
 
 
 def _cmd_overlay(ctx: CommandContext) -> None:
@@ -76,7 +76,7 @@ def _cmd_overlay(ctx: CommandContext) -> None:
     pctx = _pat_ctx(ctx, region, region.min_point)
     pat = parse_pattern(" ".join(ctx.tokens), pctx)
     op_overlay(session, region, pat, pat_ctx=pctx)
-    ctx.commit_edit(session, f"{session.changes_count} block(s) overlaid.")
+    ctx.commit_edit(session, ctx.t("region.overlay", count=session.changes_count))
 
 
 def _cmd_walls(ctx: CommandContext) -> None:
@@ -87,7 +87,7 @@ def _cmd_walls(ctx: CommandContext) -> None:
     pctx = _pat_ctx(ctx, region, region.min_point)
     pat = parse_pattern(" ".join(ctx.tokens), pctx)
     op_walls(session, region, pat, pat_ctx=pctx)
-    ctx.commit_edit(session, f"{session.changes_count} wall block(s) updated.")
+    ctx.commit_edit(session, ctx.t("region.walls", count=session.changes_count))
 
 
 def _cmd_faces(ctx: CommandContext) -> None:
@@ -98,7 +98,7 @@ def _cmd_faces(ctx: CommandContext) -> None:
     pctx = _pat_ctx(ctx, region, region.min_point)
     pat = parse_pattern(" ".join(ctx.tokens), pctx)
     op_faces(session, region, pat, pat_ctx=pctx)
-    ctx.commit_edit(session, f"{session.changes_count} outline block(s) updated.")
+    ctx.commit_edit(session, ctx.t("region.faces", count=session.changes_count))
 
 
 def _cmd_center(ctx: CommandContext) -> None:
@@ -109,7 +109,7 @@ def _cmd_center(ctx: CommandContext) -> None:
     pctx = _pat_ctx(ctx, region, region.min_point)
     pat = parse_pattern(" ".join(ctx.tokens), pctx)
     op_center(session, region, pat, pat_ctx=pctx)
-    ctx.commit_edit(session, f"{session.changes_count} center block(s) updated.")
+    ctx.commit_edit(session, ctx.t("region.center", count=session.changes_count))
 
 
 def _cmd_smooth(ctx: CommandContext) -> None:
@@ -124,7 +124,7 @@ def _cmd_smooth(ctx: CommandContext) -> None:
         mask = parse_mask(" ".join(pos_args[1:]), mctx)
     session = ctx.create_edit_session("smooth", origin=region.min_point)
     op_smooth(session, region, iterations=iters, mask=mask, mask_ctx=mctx)
-    ctx.commit_edit(session, f"Smoothed region ({session.changes_count} blocks modified).")
+    ctx.commit_edit(session, ctx.t("region.smooth", count=session.changes_count))
 
 
 def _cmd_snowsmooth(ctx: CommandContext) -> None:
@@ -133,7 +133,7 @@ def _cmd_snowsmooth(ctx: CommandContext) -> None:
     snow_blocks = int(ctx.tokens[1]) if len(ctx.tokens) >= 2 else 1
     session = ctx.create_edit_session("snowsmooth", origin=region.min_point)
     op_snowsmooth(session, region, iterations=iters, snow_blocks=snow_blocks)
-    ctx.commit_edit(session, f"Smoothed snow heightmap ({session.changes_count} blocks).")
+    ctx.commit_edit(session, ctx.t("region.snowsmooth", count=session.changes_count))
 
 
 def _cmd_move(ctx: CommandContext) -> None:
@@ -162,7 +162,10 @@ def _cmd_move(ctx: CommandContext) -> None:
     )
     if "s" in flags:
         region.shift(direction * count)
-    ctx.commit_edit(session, f"Moved {session.changes_count} block(s) to {new_min.format_short()} .. {new_max.format_short()}.")
+    ctx.commit_edit(
+        session,
+        ctx.t("region.move", count=session.changes_count, lo=new_min.format_short(), hi=new_max.format_short()),
+    )
 
 
 def _cmd_stack(ctx: CommandContext) -> None:
@@ -185,9 +188,11 @@ def _cmd_stack(ctx: CommandContext) -> None:
     )
     if "s" in flags:
         dims = region.dimensions
-        stride = direction
-        region.shift(resolve_direction(dir_tok, yaw=ctx.actor.yaw, pitch=ctx.actor.pitch).min_with(stride) if False else type(dims)(direction.x * dims.x * count, direction.y * dims.y * count, direction.z * dims.z * count))
-    ctx.commit_edit(session, f"Stacked {count} time(s) to {new_min.format_short()} .. {new_max.format_short()} ({session.changes_count} blocks updated).")
+        region.shift(type(dims)(direction.x * dims.x * count, direction.y * dims.y * count, direction.z * dims.z * count))
+    ctx.commit_edit(
+        session,
+        ctx.t("region.stack", times=count, lo=new_min.format_short(), hi=new_max.format_short(), count=session.changes_count),
+    )
 
 
 def _cmd_line(ctx: CommandContext) -> None:
@@ -203,7 +208,7 @@ def _cmd_line(ctx: CommandContext) -> None:
         p1, p2 = region.min_point, region.max_point
     session = ctx.create_edit_session("line", origin=p1)
     op_line(session, p1, p2, parse_pattern(pat_str, _pat_ctx(ctx, region, p1)), thickness=thickness, filled="h" not in flags)
-    ctx.commit_edit(session, f"Line drawn ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("region.line", count=session.changes_count))
 
 
 def _cmd_curve(ctx: CommandContext) -> None:
@@ -221,7 +226,7 @@ def _cmd_curve(ctx: CommandContext) -> None:
     thickness = int(pos_args[1]) if len(pos_args) >= 2 else 0
     session = ctx.create_edit_session("curve", origin=verts[0])
     op_curve(session, verts, parse_pattern(pat_str, _pat_ctx(ctx, region, verts[0])), thickness=thickness, filled="h" not in flags)
-    ctx.commit_edit(session, f"Curve drawn ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("region.curve", count=session.changes_count))
 
 
 def _cmd_hollow(ctx: CommandContext) -> None:
@@ -230,7 +235,7 @@ def _cmd_hollow(ctx: CommandContext) -> None:
     pat = parse_pattern(ctx.tokens[1], _pat_ctx(ctx, region, region.min_point)) if len(ctx.tokens) >= 2 else None
     session = ctx.create_edit_session("hollow", origin=region.min_point)
     op_hollow(session, ctx.actor.world, region, thickness=thickness, pattern=pat)
-    ctx.commit_edit(session, f"Hollowed region ({session.changes_count} block(s) replaced).")
+    ctx.commit_edit(session, ctx.t("region.hollow", count=session.changes_count))
 
 
 def _cmd_deform(ctx: CommandContext) -> None:
@@ -241,7 +246,7 @@ def _cmd_deform(ctx: CommandContext) -> None:
     expr = " ".join(pos_args)
     session = ctx.create_edit_session("deform", origin=region.center)
     op_deform(session, ctx.actor.world, region, expr, raw_coords="r" in flags, offset_mode="o" in flags, origin=region.center)
-    ctx.commit_edit(session, f"Deformed region ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("region.deform", count=session.changes_count))
 
 
 def _cmd_forest(ctx: CommandContext) -> None:
@@ -250,7 +255,7 @@ def _cmd_forest(ctx: CommandContext) -> None:
     density = float(ctx.tokens[1]) if len(ctx.tokens) >= 2 else 5.0
     session = ctx.create_edit_session("forest", origin=region.min_point)
     op_forest(session, ctx.actor.world, region, tree_type=tree_type, density=density)
-    ctx.commit_edit(session, f"Planted forest ({session.changes_count} tree block(s)).")
+    ctx.commit_edit(session, ctx.t("region.forest", count=session.changes_count))
 
 
 def _cmd_flora(ctx: CommandContext) -> None:
@@ -258,14 +263,14 @@ def _cmd_flora(ctx: CommandContext) -> None:
     density = float(ctx.tokens[0]) if ctx.tokens else 10.0
     session = ctx.create_edit_session("flora", origin=region.min_point)
     op_flora(session, ctx.actor.world, region, density=density)
-    ctx.commit_edit(session, f"Scattered flora ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("region.flora", count=session.changes_count))
 
 
 def _cmd_naturalize(ctx: CommandContext) -> None:
     region = ctx.services.selections.get_region(ctx.actor.key)
     session = ctx.create_edit_session("naturalize", origin=region.min_point)
     op_naturalize(session, region)
-    ctx.commit_edit(session, f"Naturalized terrain ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("region.naturalize", count=session.changes_count))
 
 
 def _cmd_regen(ctx: CommandContext) -> None:
@@ -284,7 +289,7 @@ def _cmd_regen(ctx: CommandContext) -> None:
             session.set_block(pos, dirt)
         else:
             session.set_block(pos, stone)
-    ctx.commit_edit(session, f"Regenerated region baseline ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("region.regen", count=session.changes_count))
 
 
 def _cmd_revolve(ctx: CommandContext) -> None:
@@ -302,7 +307,7 @@ def _cmd_revolve(ctx: CommandContext) -> None:
         ctx.actor.world, session, region, ctx.actor.position,
         count=count, start_angle=start, end_angle=end, height_diff=height_diff, reverse="r" in flags, mask=mask,
     )
-    ctx.commit_edit(session, f"Revolved {count} copies ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("region.revolve", times=count, count=session.changes_count))
 
 
 def register(router: CommandRouter) -> None:

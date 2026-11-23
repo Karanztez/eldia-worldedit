@@ -1,4 +1,4 @@
-"""Tests for Brushes, Bound Tools, Super Pickaxe, Snapshots, CraftScripts, and Endstone Plugin metadata."""
+"""Tests for Brushes, Bound Tools, Super Pickaxe, Config/Thai i18n, Debounce, Snapshots, and Endstone Plugin."""
 
 import inspect
 from pathlib import Path
@@ -38,7 +38,7 @@ def test_brushes_tools_and_super_pickaxe(tmp_path: Path):
     session.commit()
     assert cnt > 0 and actor.world.get_block(BlockVec3(0, 64, 0)) == BlockSpec("minecraft:granite")
 
-    # Bind and test floodfill, cycler, deltree, super pickaxe
+    # Bind and test cycler & super pickaxe
     actor._hand_item = "minecraft:blaze_rod"
     router.dispatch_line(actor, "/tool cycler")
     stair_pos = BlockVec3(20, 64, 20)
@@ -50,7 +50,6 @@ def test_brushes_tools_and_super_pickaxe(tmp_path: Path):
     tsess.commit()
     assert actor.world.get_block(stair_pos).states_dict["weirdo_direction"] == 1
 
-    # Super pickaxe recursive mode
     router.dispatch_line(actor, "//sp recursive 2")
     sp = services.tools.get_super_pickaxe(actor.key)
     for x in range(30, 33):
@@ -61,13 +60,56 @@ def test_brushes_tools_and_super_pickaxe(tmp_path: Path):
     assert broken == 3 and actor.world.get_block(BlockVec3(32, 64, 30)) == AIR_SPEC
 
 
+def test_config_thai_lang_and_debounce(tmp_path: Path):
+    services = WorldEditServices.create(tmp_path)
+    cfg_file = tmp_path / "config.yml"
+    assert cfg_file.is_file()
+    assert services.config.config.prefix == "[EWE]"
+    assert services.config.config.language == "en"
+
+    router = CommandRouter(services)
+    register_all_commands(router)
+    actor = MockCommandActor()
+
+    # Switch to Thai via /ewe lang th and persist to config.yml
+    router.dispatch_line(actor, "/ewe lang th")
+    assert services.lang.language == "th"
+    assert 'language: "th"' in cfg_file.read_text(encoding="utf-8")
+
+    # Test Thai selection, set, and undo messages
+    router.dispatch_line(actor, "//pos1 0,64,0")
+    assert any("ตั้งจุดที่ 1" in m for m in actor.messages)
+    router.dispatch_line(actor, "//pos2 1,64,1")
+    assert any("ตั้งจุดที่ 2" in m for m in actor.messages)
+    router.dispatch_line(actor, "//set stone")
+    assert any("แก้ไขพื้นที่เรียบร้อยแล้ว" in m for m in actor.messages)
+    router.dispatch_line(actor, "//undo")
+    assert any("ย้อนกลับ" in m for m in actor.messages)
+
+    # Test /ewe reload reads edited config.yml
+    cfg_file.write_text('language: "en"\nprefix: "[EWE]"\nmax_history: 30\ndefault_limit: 500000\n', encoding="utf-8")
+    router.dispatch_line(actor, "/ewe reload")
+    assert services.lang.language == "en"
+
+    # Test right-click & duplicate position debounce (prevents BDS second-click spam)
+    tman = services.tools
+    pos = BlockVec3(292, 62, 79)
+    assert tman.should_debounce_right_click(actor.key, now_ms=1000.0) is False
+    assert tman.should_debounce_right_click(actor.key, now_ms=1100.0) is True
+    assert tman.should_debounce_right_click(actor.key, now_ms=1400.0) is False
+
+    assert tman.should_suppress_repeat_pos(actor.key, "pos2", pos, now_ms=1000.0) is False
+    assert tman.should_suppress_repeat_pos(actor.key, "pos2", pos, now_ms=1450.0) is True
+    assert tman.should_suppress_repeat_pos(actor.key, "pos2", pos, now_ms=2500.0) is False
+    assert tman.should_suppress_repeat_pos(actor.key, "pos2", BlockVec3(293, 62, 79), now_ms=2550.0) is False
+
+
 def test_snapshots_and_craftscripts_and_biomes(tmp_path: Path):
     services = WorldEditServices.create(tmp_path)
     router = CommandRouter(services)
     register_all_commands(router)
     actor = MockCommandActor()
 
-    # Snapshots
     actor.world.set_block(BlockVec3(0, 64, 0), BlockSpec("minecraft:gold_block"))
     router.dispatch_line(actor, "//pos1 0,64,0")
     router.dispatch_line(actor, "//pos2 1,64,1")
@@ -77,7 +119,6 @@ def test_snapshots_and_craftscripts_and_biomes(tmp_path: Path):
     router.dispatch_line(actor, "//restore")
     assert actor.world.get_block(BlockVec3(0, 64, 0)) == BlockSpec("minecraft:gold_block")
 
-    # CraftScripts + /.s repeat
     script_file = services.scripts.craftscripts_dir / "pillar.wescript"
     services.scripts.craftscripts_dir.mkdir(parents=True, exist_ok=True)
     script_file.write_text("//pos1 5,64,5\n//pos2 5,67,5\n//set $0\n", encoding="utf-8")
@@ -86,7 +127,6 @@ def test_snapshots_and_craftscripts_and_biomes(tmp_path: Path):
     router.dispatch_line(actor, "/.s emerald_block")
     assert actor.world.get_block(BlockVec3(5, 67, 5)) == BlockSpec("minecraft:emerald_block")
 
-    # Biomes & searchitem
     router.dispatch_line(actor, "//setbiome cherry_grove")
     assert actor.world.get_biome(BlockVec3(5, 64, 5)) == "cherry_grove"
     router.dispatch_line(actor, "/searchitem amethyst")
@@ -94,7 +134,6 @@ def test_snapshots_and_craftscripts_and_biomes(tmp_path: Path):
 
 
 def test_endstone_plugin_annotations_commands_and_rewrites():
-    # 1. Verify NO @event_handler uses stringified annotations
     for _, method in inspect.getmembers(WorldEditPlugin, predicate=inspect.isfunction):
         if getattr(method, "_is_event_handler", False) or method.__name__.startswith("on_") and method.__name__ not in ("on_load", "on_enable", "on_disable", "on_command"):
             sig = inspect.signature(method)
@@ -105,9 +144,9 @@ def test_endstone_plugin_annotations_commands_and_rewrites():
                     f"{method.__name__} parameter {pname} annotation must be real Event subclass, got {param.annotation!r}"
                 )
 
-    # 2. Verify zero vanilla BDS command collisions and valid Endstone usage grammar
     cmds = WorldEditPlugin.commands
     assert "worldedit" in cmds and "pos1" in cmds and "brush" in cmds
+    assert "ewe" in cmds["worldedit"].get("aliases", [])
     for cname, meta in cmds.items():
         assert cname not in VANILLA_COMMANDS, f"Plugin registered vanilla BDS command '{cname}'"
         for alias in meta.get("aliases", []):
@@ -115,12 +154,11 @@ def test_endstone_plugin_annotations_commands_and_rewrites():
         for usage in meta["usages"]:
             assert not ("[" in usage and "<" in usage), f"Invalid nested Endstone usage syntax: {usage}"
 
-    # 3. Verify // & shorthand rewrites
-    assert rewrite_double_slash_command("//") == "/we sp toggle"
-    assert rewrite_double_slash_command("//set stone") == "/we set stone"
-    assert rewrite_double_slash_command("//fill water 3") == "/we fill water 3"
-    assert rewrite_double_slash_command("/.s gold_block") == "/we .s gold_block"
-    assert rewrite_double_slash_command("/;") == "/we sel"
-    assert rewrite_double_slash_command("/!") == "/we unstuck"
-    assert rewrite_double_slash_command("/,") == "/we sp toggle"
+    assert rewrite_double_slash_command("//") == "/ewe sp toggle"
+    assert rewrite_double_slash_command("//set stone") == "/ewe set stone"
+    assert rewrite_double_slash_command("//fill water 3") == "/ewe fill water 3"
+    assert rewrite_double_slash_command("/.s gold_block") == "/ewe .s gold_block"
+    assert rewrite_double_slash_command("/;") == "/ewe sel"
+    assert rewrite_double_slash_command("/!") == "/ewe unstuck"
+    assert rewrite_double_slash_command("/,") == "/ewe sp toggle"
     assert rewrite_double_slash_command("/pos1") is None

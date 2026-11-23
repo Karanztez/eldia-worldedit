@@ -35,7 +35,7 @@ def _cmd_fill(ctx: CommandContext) -> None:
     depth = int(pos_args[2]) if len(pos_args) >= 3 else 1
     session = ctx.create_edit_session("fill")
     op_fill(session, ctx.actor.world, ctx.actor.position, pat, radius=radius, depth=depth, up="u" in flags, pat_ctx=pctx)
-    ctx.commit_edit(session, f"{session.changes_count} block(s) filled.")
+    ctx.commit_edit(session, ctx.t("util.fill", count=session.changes_count))
 
 
 def _cmd_fillr(ctx: CommandContext) -> None:
@@ -47,7 +47,7 @@ def _cmd_fillr(ctx: CommandContext) -> None:
     depth = int(ctx.tokens[2]) if len(ctx.tokens) >= 3 else None
     session = ctx.create_edit_session("fillr")
     op_fillr(session, ctx.actor.world, ctx.actor.position, pat, radius=radius, depth=depth, pat_ctx=pctx)
-    ctx.commit_edit(session, f"{session.changes_count} block(s) recursively filled.")
+    ctx.commit_edit(session, ctx.t("util.fillr", count=session.changes_count))
 
 
 def _cmd_drain(ctx: CommandContext) -> None:
@@ -57,7 +57,7 @@ def _cmd_drain(ctx: CommandContext) -> None:
     radius = float(pos_args[0])
     session = ctx.create_edit_session("drain")
     op_drain(session, ctx.actor.world, ctx.actor.position, radius=radius, waterlogged="w" in flags)
-    ctx.commit_edit(session, f"Drained {session.changes_count} block(s).")
+    ctx.commit_edit(session, ctx.t("util.drain", count=session.changes_count))
 
 
 def _cmd_fixwater(ctx: CommandContext) -> None:
@@ -66,7 +66,7 @@ def _cmd_fixwater(ctx: CommandContext) -> None:
     radius = float(ctx.tokens[0])
     session = ctx.create_edit_session("fixwater")
     op_fix_liquid(session, ctx.actor.world, ctx.actor.position, radius=radius, liquid="water")
-    ctx.commit_edit(session, f"Fixed {session.changes_count} water block(s).")
+    ctx.commit_edit(session, ctx.t("util.fixwater", count=session.changes_count))
 
 
 def _cmd_fixlava(ctx: CommandContext) -> None:
@@ -75,7 +75,7 @@ def _cmd_fixlava(ctx: CommandContext) -> None:
     radius = float(ctx.tokens[0])
     session = ctx.create_edit_session("fixlava")
     op_fix_liquid(session, ctx.actor.world, ctx.actor.position, radius=radius, liquid="lava")
-    ctx.commit_edit(session, f"Fixed {session.changes_count} lava block(s).")
+    ctx.commit_edit(session, ctx.t("util.fixlava", count=session.changes_count))
 
 
 def _cmd_removeabove(ctx: CommandContext) -> None:
@@ -83,7 +83,7 @@ def _cmd_removeabove(ctx: CommandContext) -> None:
     height = int(ctx.tokens[1]) if len(ctx.tokens) >= 2 else 256
     session = ctx.create_edit_session("removeabove")
     op_remove_above(session, ctx.actor.world, ctx.actor.position, size=size, height=height)
-    ctx.commit_edit(session, f"Removed {session.changes_count} block(s) above you.")
+    ctx.commit_edit(session, ctx.t("util.removeabove", count=session.changes_count))
 
 
 def _cmd_removebelow(ctx: CommandContext) -> None:
@@ -91,7 +91,7 @@ def _cmd_removebelow(ctx: CommandContext) -> None:
     height = int(ctx.tokens[1]) if len(ctx.tokens) >= 2 else 256
     session = ctx.create_edit_session("removebelow")
     op_remove_below(session, ctx.actor.world, ctx.actor.position, size=size, height=height)
-    ctx.commit_edit(session, f"Removed {session.changes_count} block(s) below you.")
+    ctx.commit_edit(session, ctx.t("util.removebelow", count=session.changes_count))
 
 
 def _cmd_removenear(ctx: CommandContext) -> None:
@@ -106,7 +106,7 @@ def _cmd_removenear(ctx: CommandContext) -> None:
     mask = parse_mask(mask_expr, MaskContext(origin=ctx.actor.position, hand_block=ctx.actor.hand_block))
     session = ctx.create_edit_session("removenear")
     op_remove_near(session, ctx.actor.world, ctx.actor.position, mask=mask, size=size)
-    ctx.commit_edit(session, f"Removed {session.changes_count} matching block(s).")
+    ctx.commit_edit(session, ctx.t("util.removenear", count=session.changes_count))
 
 
 def _cmd_replacenear(ctx: CommandContext) -> None:
@@ -122,7 +122,7 @@ def _cmd_replacenear(ctx: CommandContext) -> None:
         to_pat = parse_pattern(ctx.tokens[-1], pctx)
     session = ctx.create_edit_session("replacenear")
     op_replace_near(session, ctx.actor.world, ctx.actor.position, from_mask=from_mask, to_pattern=to_pat, size=size, pat_ctx=pctx)
-    ctx.commit_edit(session, f"Replaced {session.changes_count} nearby block(s).")
+    ctx.commit_edit(session, ctx.t("util.replacenear", count=session.changes_count))
 
 
 def _cmd_snow(ctx: CommandContext) -> None:
@@ -130,14 +130,14 @@ def _cmd_snow(ctx: CommandContext) -> None:
     radius = float(pos_args[0]) if pos_args else 10.0
     session = ctx.create_edit_session("snow")
     op_snow(session, ctx.actor.world, ctx.actor.position, radius=radius, stack="s" in flags)
-    ctx.commit_edit(session, f"Snowed {session.changes_count} surface(s).")
+    ctx.commit_edit(session, ctx.t("util.snow", count=session.changes_count))
 
 
 def _cmd_thaw(ctx: CommandContext) -> None:
     radius = float(ctx.tokens[0]) if ctx.tokens else 10.0
     session = ctx.create_edit_session("thaw")
     op_thaw(session, ctx.actor.world, ctx.actor.position, radius=radius)
-    ctx.commit_edit(session, f"Thawed {session.changes_count} snow/ice block(s).")
+    ctx.commit_edit(session, ctx.t("util.thaw", count=session.changes_count))
 
 
 def _cmd_green(ctx: CommandContext) -> None:
@@ -145,21 +145,21 @@ def _cmd_green(ctx: CommandContext) -> None:
     radius = float(pos_args[0]) if pos_args else 10.0
     session = ctx.create_edit_session("green")
     op_green(session, ctx.actor.world, ctx.actor.position, radius=radius, only_grass="f" in flags)
-    ctx.commit_edit(session, f"Greened {session.changes_count} dirt block(s).")
+    ctx.commit_edit(session, ctx.t("util.green", count=session.changes_count))
 
 
 def _cmd_extinguish(ctx: CommandContext) -> None:
     radius = float(ctx.tokens[0]) if ctx.tokens else 15.0
     session = ctx.create_edit_session("extinguish")
     op_extinguish(session, ctx.actor.world, ctx.actor.position, radius=radius)
-    ctx.commit_edit(session, f"Extinguished {session.changes_count} fire block(s).")
+    ctx.commit_edit(session, ctx.t("util.ex", count=session.changes_count))
 
 
 def _cmd_butcher(ctx: CommandContext) -> None:
     flags, _, pos_args = parse_flags(ctx.tokens, bool_flags={"p", "a", "n", "g", "b", "l", "r", "f"})
     radius = float(pos_args[0]) if pos_args else -1.0
     removed = op_butcher(ctx.actor.world, ctx.actor.position, radius=radius, flags=flags)
-    ctx.actor.send_message(f"Killed {removed} mob(s).")
+    ctx.actor.send_message(ctx.t("util.butcher", count=removed))
 
 
 def _cmd_remove_entities(ctx: CommandContext) -> None:
@@ -168,7 +168,7 @@ def _cmd_remove_entities(ctx: CommandContext) -> None:
     etype = ctx.tokens[0]
     radius = float(ctx.tokens[1]) if len(ctx.tokens) >= 2 else -1.0
     removed = op_remove_entities(ctx.actor.world, ctx.actor.position, entity_type=etype, radius=radius)
-    ctx.actor.send_message(f"Removed {removed} '{etype}' entity/entities.")
+    ctx.actor.send_message(ctx.t("util.remove_ent", count=removed, etype=etype))
 
 
 def _cmd_calc(ctx: CommandContext) -> None:

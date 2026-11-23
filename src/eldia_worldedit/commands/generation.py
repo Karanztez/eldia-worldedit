@@ -45,7 +45,7 @@ def _run_cyl(ctx: CommandContext, filled: bool) -> None:
     height = int(pos_args[2]) if len(pos_args) >= 3 else 1
     session = ctx.create_edit_session("cyl", origin=origin)
     generate_cylinder(session, origin, pat, rx, rz, height=height, filled=filled, pat_ctx=pctx)
-    ctx.commit_edit(session, f"Cylinder generated ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("gen.cyl", count=session.changes_count))
 
 
 def _run_sphere(ctx: CommandContext, filled: bool) -> None:
@@ -60,7 +60,7 @@ def _run_sphere(ctx: CommandContext, filled: bool) -> None:
     rx, ry, rz = _parse_radii(pos_args[1])
     session = ctx.create_edit_session("sphere", origin=origin)
     generate_sphere(session, origin, pat, rx, ry, rz, filled=filled, raised="r" in flags, pat_ctx=pctx)
-    ctx.commit_edit(session, f"Sphere generated ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("gen.sphere", count=session.changes_count))
 
 
 def _run_pyramid(ctx: CommandContext, filled: bool) -> None:
@@ -75,7 +75,7 @@ def _run_pyramid(ctx: CommandContext, filled: bool) -> None:
     size = int(pos_args[1])
     session = ctx.create_edit_session("pyramid", origin=origin)
     generate_pyramid(session, origin, pat, size=size, filled=filled, pat_ctx=pctx)
-    ctx.commit_edit(session, f"Pyramid generated ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("gen.pyramid", count=session.changes_count))
 
 
 def _cmd_cone(ctx: CommandContext) -> None:
@@ -91,7 +91,7 @@ def _cmd_cone(ctx: CommandContext) -> None:
     thickness = float(pos_args[3]) if len(pos_args) >= 4 else 1.0
     session = ctx.create_edit_session("cone", origin=origin)
     generate_cone(session, origin, pat, rx, rz, height=height, filled="h" not in flags, thickness=thickness, pat_ctx=pctx)
-    ctx.commit_edit(session, f"Cone generated ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("gen.cone", count=session.changes_count))
 
 
 def _cmd_generate(ctx: CommandContext) -> None:
@@ -108,7 +108,7 @@ def _cmd_generate(ctx: CommandContext) -> None:
         session, region, pat, expr,
         hollow="h" in flags, raw_coords="r" in flags, offset_mode="o" in flags, origin=region.center if "c" in flags else origin, pat_ctx=pctx,
     )
-    ctx.commit_edit(session, f"Generated {session.changes_count} block(s) from formula.")
+    ctx.commit_edit(session, ctx.t("gen.formula", count=session.changes_count))
 
 
 def _cmd_forestgen(ctx: CommandContext) -> None:
@@ -125,7 +125,7 @@ def _cmd_forestgen(ctx: CommandContext) -> None:
     )
     session = ctx.create_edit_session("forestgen", origin=origin)
     op_forest(session, ctx.actor.world, box, tree_type=tree_type, density=density)
-    ctx.commit_edit(session, f"Generated {session.changes_count} forest block(s).")
+    ctx.commit_edit(session, ctx.t("gen.forest", count=session.changes_count))
 
 
 def _cmd_pumpkins(ctx: CommandContext) -> None:
@@ -133,7 +133,7 @@ def _cmd_pumpkins(ctx: CommandContext) -> None:
     origin = _place_origin(ctx)
     session = ctx.create_edit_session("pumpkins", origin=origin)
     op_pumpkins(session, ctx.actor.world, origin, size=size)
-    ctx.commit_edit(session, f"Generated pumpkin patch ({session.changes_count} block(s)).")
+    ctx.commit_edit(session, ctx.t("gen.pumpkins", count=session.changes_count))
 
 
 def _cmd_generatebiome(ctx: CommandContext) -> None:
@@ -142,7 +142,7 @@ def _cmd_generatebiome(ctx: CommandContext) -> None:
     region = ctx.services.selections.get_region(ctx.actor.key)
     biome_name = ctx.tokens[0]
     cnt = op_biome_set(ctx.actor.world, region, biome_name)
-    ctx.actor.send_message(f"Applied biome '{biome_name}' across {cnt} block column(s).")
+    ctx.actor.send_message(ctx.t("gen.biome", biome=biome_name, count=cnt))
 
 
 def register(router: CommandRouter) -> None:

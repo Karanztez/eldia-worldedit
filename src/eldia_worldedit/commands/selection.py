@@ -20,13 +20,13 @@ def _parse_xyz(raw: str) -> BlockVec3:
 
 def _cmd_pos1(ctx: CommandContext) -> None:
     pos = _parse_xyz(ctx.tokens[0]) if ctx.tokens else ctx.actor.position
-    msg = ctx.services.selections.select_pos1(ctx.actor.key, pos)
+    msg = ctx.services.selections.select_pos1(ctx.actor.key, pos, lang=ctx.services.lang)
     ctx.actor.send_message(msg)
 
 
 def _cmd_pos2(ctx: CommandContext) -> None:
     pos = _parse_xyz(ctx.tokens[0]) if ctx.tokens else ctx.actor.position
-    msg = ctx.services.selections.select_pos2(ctx.actor.key, pos)
+    msg = ctx.services.selections.select_pos2(ctx.actor.key, pos, lang=ctx.services.lang)
     ctx.actor.send_message(msg)
 
 
@@ -34,16 +34,16 @@ def _cmd_hpos1(ctx: CommandContext) -> None:
     ex, ey, ez = ctx.actor.eye_position
     hit = raycast_block(ctx.actor.world, ex, ey, ez, ctx.actor.yaw, ctx.actor.pitch, max_dist=128.0)
     if hit is None:
-        raise ValueError("No block in sight.")
-    ctx.actor.send_message(ctx.services.selections.select_pos1(ctx.actor.key, hit))
+        raise ValueError(ctx.t("cmd.no_block_sight"))
+    ctx.actor.send_message(ctx.services.selections.select_pos1(ctx.actor.key, hit, lang=ctx.services.lang))
 
 
 def _cmd_hpos2(ctx: CommandContext) -> None:
     ex, ey, ez = ctx.actor.eye_position
     hit = raycast_block(ctx.actor.world, ex, ey, ez, ctx.actor.yaw, ctx.actor.pitch, max_dist=128.0)
     if hit is None:
-        raise ValueError("No block in sight.")
-    ctx.actor.send_message(ctx.services.selections.select_pos2(ctx.actor.key, hit))
+        raise ValueError(ctx.t("cmd.no_block_sight"))
+    ctx.actor.send_message(ctx.services.selections.select_pos2(ctx.actor.key, hit, lang=ctx.services.lang))
 
 
 def _cmd_chunk(ctx: CommandContext) -> None:
@@ -61,26 +61,26 @@ def _cmd_chunk(ctx: CommandContext) -> None:
     hi = BlockVec3(x0 + 15, ctx.actor.world.max_y, z0 + 15)
     sel = ctx.services.selections
     sel.set_mode(ctx.actor.key, "cuboid")
-    sel.select_pos1(ctx.actor.key, lo)
-    msg = sel.select_pos2(ctx.actor.key, hi)
-    ctx.actor.send_message(f"Chunk ({cx}, {cz}) selected. {msg}")
+    sel.select_pos1(ctx.actor.key, lo, lang=ctx.services.lang)
+    msg = sel.select_pos2(ctx.actor.key, hi, lang=ctx.services.lang)
+    ctx.actor.send_message(ctx.t("sel.chunk", cx=cx, cz=cz, msg=msg))
 
 
 def _cmd_wand(ctx: CommandContext) -> None:
-    flags, _, _ = parse_flags(ctx.tokens, bool_flags={"n"})
+    _flags, _, _ = parse_flags(ctx.tokens, bool_flags={"n"})
     sess = ctx.services.sessions.get(ctx.actor.key)
-    item = sess.nav_wand_item if "n" in flags else sess.wand_item
+    item = sess.nav_wand_item if "n" in _flags else sess.wand_item
     if ctx.actor.give_item(item, 1):
-        ctx.actor.send_message(f"Left click: select pos #1; Right click: select pos #2 ({item}).")
+        ctx.actor.send_message(ctx.t("sel.wand", item=item))
     else:
-        ctx.actor.send_error(f"Could not give wand item {item}.")
+        ctx.actor.send_error(ctx.t("sel.wand_fail", item=item))
 
 
 def _cmd_toggleeditwand(ctx: CommandContext) -> None:
     sess = ctx.services.sessions.get(ctx.actor.key)
     sess.wand_enabled = not sess.wand_enabled
-    state = "enabled" if sess.wand_enabled else "disabled"
-    ctx.actor.send_message(f"Selection wand {state}.")
+    state = ctx.t("state.enabled" if sess.wand_enabled else "state.disabled")
+    ctx.actor.send_message(ctx.t("sel.wand_toggle", state=state))
 
 
 def _cmd_expand(ctx: CommandContext) -> None:
@@ -96,7 +96,7 @@ def _cmd_expand(ctx: CommandContext) -> None:
         else:
             region.expand(BlockVec3(0, ctx.actor.world.min_y - region.min_point.y, 0))
             region.expand(BlockVec3(0, ctx.actor.world.max_y - region.max_point.y, 0))
-        ctx.actor.send_message(f"Region expanded vertically to {region.volume} blocks.")
+        ctx.actor.send_message(ctx.t("sel.expand_vert", vol=region.volume))
         return
 
     amount = int(ctx.tokens[0])
@@ -114,7 +114,7 @@ def _cmd_expand(ctx: CommandContext) -> None:
     if reverse_amt:
         region.expand((-direction) * reverse_amt)
     after = region.volume
-    ctx.actor.send_message(f"Region expanded: {after} blocks ({after - before:+d}).")
+    ctx.actor.send_message(ctx.t("sel.expand", after=after, delta=after - before))
 
 
 def _cmd_contract(ctx: CommandContext) -> None:
@@ -136,7 +136,7 @@ def _cmd_contract(ctx: CommandContext) -> None:
     if reverse_amt:
         region.contract((-direction) * reverse_amt)
     after = region.volume
-    ctx.actor.send_message(f"Region contracted: {after} blocks ({after - before:+d}).")
+    ctx.actor.send_message(ctx.t("sel.contract", after=after, delta=after - before))
 
 
 def _cmd_outset(ctx: CommandContext) -> None:
@@ -146,7 +146,7 @@ def _cmd_outset(ctx: CommandContext) -> None:
     amount = int(pos_args[0])
     region = ctx.services.selections.get_region(ctx.actor.key)
     region.outset(amount, h_only="h" in flags, v_only="v" in flags)
-    ctx.actor.send_message(f"Region outset by {amount} ({region.volume} blocks).")
+    ctx.actor.send_message(ctx.t("sel.outset", amount=amount, vol=region.volume))
 
 
 def _cmd_inset(ctx: CommandContext) -> None:
@@ -156,7 +156,7 @@ def _cmd_inset(ctx: CommandContext) -> None:
     amount = int(pos_args[0])
     region = ctx.services.selections.get_region(ctx.actor.key)
     region.inset(amount, h_only="h" in flags, v_only="v" in flags)
-    ctx.actor.send_message(f"Region inset by {amount} ({region.volume} blocks).")
+    ctx.actor.send_message(ctx.t("sel.inset", amount=amount, vol=region.volume))
 
 
 def _cmd_shift(ctx: CommandContext) -> None:
@@ -168,7 +168,7 @@ def _cmd_shift(ctx: CommandContext) -> None:
     region = ctx.services.selections.get_region(ctx.actor.key)
     region.shift(direction * amount)
     ctx.actor.send_message(
-        f"Selection shifted to {region.min_point.format_short()} .. {region.max_point.format_short()}."
+        ctx.t("sel.shift", lo=region.min_point.format_short(), hi=region.max_point.format_short())
     )
 
 
@@ -190,16 +190,23 @@ def _cmd_size(ctx: CommandContext) -> None:
     if "c" in flags:
         cb = ctx.services.clipboards.get(ctx.actor.key)
         if cb is None:
-            raise ValueError("Clipboard is empty.")
+            raise ValueError(ctx.t("clip.empty"))
         d = cb.dimensions
-        ctx.actor.send_message(f"Clipboard size: {cb.volume} blocks ({d.x}x{d.y}x{d.z}).")
+        ctx.actor.send_message(ctx.t("sel.size_clip", vol=cb.volume, dx=d.x, dy=d.y, dz=d.z))
         return
 
     region = ctx.services.selections.get_region(ctx.actor.key)
     d = region.dimensions
     ctx.actor.send_message(
-        f"Selection: {region.volume} blocks | size {d.x}x{d.y}x{d.z} | "
-        f"{region.min_point.format_short()} .. {region.max_point.format_short()}."
+        ctx.t(
+            "sel.size",
+            vol=region.volume,
+            dx=d.x,
+            dy=d.y,
+            dz=d.z,
+            lo=region.min_point.format_short(),
+            hi=region.max_point.format_short(),
+        )
     )
 
 
@@ -209,14 +216,14 @@ def _cmd_count(ctx: CommandContext) -> None:
     region = ctx.services.selections.get_region(ctx.actor.key)
     mask = parse_mask(" ".join(ctx.tokens), MaskContext(region=region, origin=region.min_point, hand_block=ctx.actor.hand_block))
     total = op_count(ctx.actor.world, region, mask)
-    ctx.actor.send_message(f"Counted {total} matching block(s).")
+    ctx.actor.send_message(ctx.t("sel.count", total=total))
 
 
 def _cmd_distr(ctx: CommandContext) -> None:
     flags, _, _ = parse_flags(ctx.tokens, bool_flags={"c", "d"})
     region = ctx.services.selections.get_region(ctx.actor.key)
     total, rows = op_distr(ctx.actor.world, region, include_air=("d" not in flags))
-    ctx.actor.send_message(f"# Total blocks analyzed: {total}")
+    ctx.actor.send_message(ctx.t("sel.distr_hdr", total=total))
     for name, cnt, pct in rows[:12]:
         ctx.actor.send_message(f"  {cnt} ({pct:.2f}%) - {name}")
 
@@ -224,28 +231,28 @@ def _cmd_distr(ctx: CommandContext) -> None:
 def _cmd_sel(ctx: CommandContext) -> None:
     if not ctx.tokens:
         ctx.services.selections.clear(ctx.actor.key)
-        ctx.actor.send_message("Selection cleared.")
+        ctx.actor.send_message(ctx.t("sel.cleared"))
         return
     mode = ctx.tokens[0].lower()
     if mode not in SELECTOR_TYPES:
         valid = ", ".join(sorted(SELECTOR_TYPES))
         raise ValueError(f"Unknown selector type '{mode}'. Choose from: {valid}.")
     ctx.services.selections.set_mode(ctx.actor.key, mode)
-    ctx.actor.send_message(f"Selector mode set to '{mode}'.")
+    ctx.actor.send_message(ctx.t("sel.mode", mode=mode))
 
 
 def _cmd_drawsel(ctx: CommandContext) -> None:
     sess = ctx.services.sessions.get(ctx.actor.key)
     sess.drawsel_enabled = not sess.drawsel_enabled
-    state = "enabled" if sess.drawsel_enabled else "disabled"
-    ctx.actor.send_message(f"Selection particle wireframe {state}.")
+    state = ctx.t("state.enabled" if sess.drawsel_enabled else "state.disabled")
+    ctx.actor.send_message(ctx.t("sel.drawsel", state=state))
 
 
 def _cmd_toggleplace(ctx: CommandContext) -> None:
     sess = ctx.services.sessions.get(ctx.actor.key)
     sess.place_mode = "player" if sess.place_mode == "pos1" else "pos1"
-    label = "player position" if sess.place_mode == "player" else "position #1"
-    ctx.actor.send_message(f"Now placing shapes/pastes at {label}.")
+    label = ctx.t("sel.place_player" if sess.place_mode == "player" else "sel.place_pos1")
+    ctx.actor.send_message(ctx.t("sel.place", label=label))
 
 
 def register(router: CommandRouter) -> None:

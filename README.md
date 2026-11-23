@@ -8,10 +8,10 @@ In-game map editing, terrain sculpting, and schematic building plugin for [Endst
 - **Batched Block Editing & Undo/Redo**: Execute large fill, replace, smooth, hollow, deform, move, stack, and spline operations in tick-safe batches with per-player `//undo`, `//redo`, block change limits, and global masks.
 - **Patterns & Masks**: Combine weighted block mixes, categories (`##wool`), clipboard/hand references, block states, inverted/neighbor filters (`>`, `<`, `!`), and math formulas (`=x^2+z^2<25`).
 - **3D Shapes & World Generators**: Build spheres, cylinders, cones, pyramids, math-driven shapes (`//g`), trees, forests, flora, and natural terrain layers.
-- **Clipboard & Schematics**: Copy, cut, paste, rotate (with directional block state rotation), flip, revolve radially, and save/load `.schem` or `.wejson` files.
+- **Clipboard & Schematics**: Copy, cut, paste, rotate (with directional block state rotation), flip, revolve radially, and save/load `.schem` (Sponge v2/v3), `.schematic`, `.mcstructure` (Bedrock structure files), or `.wejson` files.
 - **24 Brushes, 11 Item Tools & Super Pickaxe**: Bind sculpting brushes (`sphere`, `cyl`, `splatter`, `smooth`, `heightmap`, `morph`, `erode`, `dilate`, `paint`, etc.) and tools (`info`, `tree`, `stacker`, `repl`, `cycler`, `floodfill`, `deltree`, `farwand`, `lrbuild`) onto any held item, plus 3 Super Pickaxe mining modes.
 - **Snapshots & Navigation**: Back up and restore region snapshots, run `.wescript` macros, set biomes, or teleport cleanly with `/unstuck`, `/ascend`, `/descend`, `/ceil`, `/thru`, `/jumpto`, and `/up`.
-- **Interactive Bedrock UI**: Open `/we gui` in-game to run selections, region edits, shape generators, clipboard actions, and brush bindings from native Bedrock forms.
+- **Multi-Language & Bedrock UI**: Switch messages and Bedrock form menus between English (`en`) and Thai (`th`) via `config.yml` or `/ewe lang th`, with clean `[EWE]` chat prefixes.
 
 ## Installation
 
@@ -25,7 +25,20 @@ In-game map editing, terrain sculpting, and schematic building plugin for [Endst
 2. Run `//drawsel` to preview your selected bounds with particles.
 3. Run `//set 50%stone,50%cobblestone` to fill the region.
 4. Made a mistake? Run `//undo` (and `//redo` to reapply).
-5. Prefer menus over typing commands? Run `/we gui` to open the form menu.
+5. Prefer menus or Thai messages? Run `/ewe gui` or switch language with `/ewe lang th`.
+
+## Configuration (`config.yml`)
+
+After first launch, edit `plugins/eldia_worldedit/config.yml`:
+
+```yaml
+language: "th"   # "en" or "th"
+prefix: "[EWE]"
+max_history: 30
+default_limit: 500000
+```
+
+Then run `/ewe reload` in-game to apply without restarting.
 
 ## Patterns & Masks
 
@@ -42,7 +55,7 @@ In-game map editing, terrain sculpting, and schematic building plugin for [Endst
 
 ## Commands
 
-All `//<command>` commands can also be run as `/we <command>`. Non-colliding commands work directly with a single `/`.
+All `//<command>` commands can also be run as `/ewe <command>` (or `/we <command>`). Non-colliding commands work directly with a single `/`.
 
 ### Selection
 
@@ -104,7 +117,7 @@ All `//<command>` commands can also be run as `/we <command>`. Non-colliding com
 | `//rotate <y> [x] [z]` | Rotate clipboard in 90-degree increments |
 | `//flip [direction]` | Mirror clipboard along axis/direction |
 | `//clearclipboard` | Clear clipboard buffer |
-| `//schem <save\|load\|list\|delete\|formats>` | Save or load `.schem` and `.wejson` files |
+| `//schem <save\|load\|list\|delete\|formats>` | Save or load `.schem`, `.schematic`, `.mcstructure`, and `.wejson` files |
 
 ### History
 
@@ -152,7 +165,7 @@ All `//<command>` commands can also be run as `/we <command>`. Non-colliding com
 
 | Command | Description |
 | --- | --- |
-| `/we <gui\|version\|help\|reload\|cui\|report>` | Open Bedrock Form UI, help pages, and session info |
+| `/ewe <gui\|lang\|version\|help\|reload\|cui\|report>` | Open UI, switch `en`/`th`, reload `config.yml`, help |
 | `//gmask [mask]` / `//gtransform [expr]` | Set global edit mask or transform |
 | `//fast` / `//perf [mode]` | Toggle physics suppression and placement ordering |
 | `//limit [count]` / `//timeout <ms>` | Set per-edit block limit or timeout |
