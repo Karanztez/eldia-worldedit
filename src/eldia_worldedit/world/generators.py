@@ -842,19 +842,16 @@ def op_hollow(
     shell: set[BlockVec3] = set()
     queue: deque[tuple[BlockVec3, int]] = deque()
     for pos in non_air:
-        if any((pos + d) not in non_air and world.get_block(pos + d).is_air for d in _DIRS_6):
+        if any((pos + d) not in non_air and world.get_block(pos + d).is_air for d in _DIRS_6) or (
+            (
+                pos.x in (region.min_point.x, region.max_point.x)
+                or pos.y in (region.min_point.y, region.max_point.y)
+                or pos.z in (region.min_point.z, region.max_point.z)
+            )
+            and any(not region.contains(pos + d) and world.get_block(pos + d).is_air for d in _DIRS_6)
+        ):
             shell.add(pos)
             queue.append((pos, 1))
-        elif any(
-            pos.x in (region.min_point.x, region.max_point.x)
-            or pos.y in (region.min_point.y, region.max_point.y)
-            or pos.z in (region.min_point.z, region.max_point.z)
-            for _ in (0,)
-        ):
-            # Boundary touching outside of region
-            if any(not region.contains(pos + d) and world.get_block(pos + d).is_air for d in _DIRS_6):
-                shell.add(pos)
-                queue.append((pos, 1))
 
     while queue:
         cur, dist = queue.popleft()
