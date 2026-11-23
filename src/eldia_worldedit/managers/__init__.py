@@ -47,6 +47,8 @@ class WorldEditServices:
     ) -> WorldEditServices:
         if create_dirs:
             data_folder.mkdir(parents=True, exist_ok=True)
+            for sub in ("schematics", "snapshots", "craftscripts"):
+                (data_folder / sub).mkdir(parents=True, exist_ok=True)
         cfg_mgr = ConfigManager(data_folder / "config.yml", create_file=create_dirs)
         cfg = cfg_mgr.config
         eff_history = max_history if max_history is not None else cfg.max_history

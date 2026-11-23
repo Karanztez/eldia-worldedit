@@ -64,6 +64,9 @@ def test_config_thai_lang_and_debounce(tmp_path: Path):
     services = WorldEditServices.create(tmp_path)
     cfg_file = tmp_path / "config.yml"
     assert cfg_file.is_file()
+    assert (tmp_path / "schematics").is_dir()
+    assert (tmp_path / "snapshots").is_dir()
+    assert (tmp_path / "craftscripts").is_dir()
     assert services.config.config.prefix == "[EWE]"
     assert services.config.config.language == "en"
 

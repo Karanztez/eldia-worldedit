@@ -314,7 +314,7 @@ class CommandRouter:
         self.services = services
         self._commands: dict[str, CommandSpec] = {}
         self._aliases: dict[str, str] = {}
-        self._world_edit_version = "0.1.1"
+        self._world_edit_version = "0.1.2"
 
     def register(self, spec: CommandSpec) -> None:
         primary = spec.name.lower()
