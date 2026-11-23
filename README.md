@@ -15,7 +15,7 @@ In-game map editing, terrain sculpting, and schematic building plugin for [Endst
 
 ## Installation
 
-1. Download `endstone_eldia_worldedit-0.1.0-py3-none-any.whl` from [GitHub Releases](https://github.com/Karanztez/eldia-worldedit/releases).
+1. Download `endstone_eldia_worldedit-0.1.1-py3-none-any.whl` from [GitHub Releases](https://github.com/Karanztez/eldia-worldedit/releases).
 2. Place the `.whl` file into `bedrock_server/plugins/`.
 3. Restart your Endstone server.
 
